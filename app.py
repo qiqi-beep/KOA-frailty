@@ -30,17 +30,38 @@ st.markdown(
 # 加载模型和特征名称
 @st.cache_resource
 def load_model_and_features():
-    model_path = "xgb_model2.pkl"
-    feature_path = "feature_names3.pkl"
-    
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
-    
-    with open(feature_path, 'rb') as f:
-        feature_names = pickle.load(f)
-    
-    return model, feature_names
-
+    try:
+        import joblib
+        from pathlib import Path
+        
+        # 使用绝对路径
+        base_path = Path(__file__).parent
+        model_path = base_path / "xgb_koa_frailty.joblib"
+        feature_path = base_path / "feature_names3.pkl"
+        
+        # 验证文件
+        if not model_path.exists():
+            raise FileNotFoundError(f"模型文件不存在于: {model_path}")
+        
+        # 使用joblib加载模型
+        model = joblib.load(model_path)
+        
+        # 加载特征名
+        with open(feature_path, 'rb') as f:
+            feature_names = pickle.load(f)
+            
+        return model, feature_names
+        
+    except Exception as e:
+        st.error(f"加载失败: {str(e)}")
+        # 显示调试信息
+        st.write("调试信息:", {
+            "当前目录": str(base_path),
+            "文件列表": list(base_path.glob('*')),
+            "模型文件大小": model_path.stat().st_size if model_path.exists() else 0,
+            "特征文件大小": feature_path.stat().st_size if feature_path.exists() else 0
+        })
+        raise
 model, feature_names = load_model_and_features()
 # 初始化SHAP解释器
 @st.cache_resource
@@ -239,4 +260,5 @@ if submitted:
 st.markdown("---")
 
 st.caption("©2025 KOA预测系统 | 仅供临床参考")
+
 
