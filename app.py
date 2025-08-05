@@ -30,16 +30,50 @@ st.markdown(
 # 加载模型和特征名称
 @st.cache_resource
 def load_model_and_features():
-    model_path = "xgb_koa_frailty.pkl"
-    feature_path = "feature_names.pkl"
-    
-    with open(model_path, 'rb') as f:
-        model = pickle.load(f)
-    
-    with open(feature_path, 'rb') as f:
-        feature_names = pickle.load(f)
-    
-    return model, feature_names
+    try:
+        # 调试信息
+        import os
+        st.write("当前目录内容:", os.listdir())
+        
+        # 尝试多种可能的文件路径
+        possible_paths = [
+            "xgb_koa_frailty.pkl",
+            "./xgb_koa_frailty.pkl",
+            "koa-frailty/xgb_koa_frailty.pkl"
+        ]
+        
+        model = None
+        feature_names = None
+        
+        for path in possible_paths:
+            try:
+                with open(path, 'rb') as f:
+                    model = pickle.load(f)
+                st.success(f"成功从 {path} 加载模型")
+                break
+            except:
+                continue
+                
+        if model is None:
+            raise FileNotFoundError("无法找到模型文件")
+            
+        for path in possible_paths:
+            try:
+                with open(path.replace("xgb_koa_frailty", "feature_names"), 'rb') as f:
+                    feature_names = pickle.load(f)
+                st.success(f"成功从 {path.replace('xgb_koa_frailty', 'feature_names')} 加载特征")
+                break
+            except:
+                continue
+                
+        if feature_names is None:
+            raise FileNotFoundError("无法找到特征文件")
+            
+        return model, feature_names
+        
+    except Exception as e:
+        st.error(f"加载失败: {str(e)}")
+        raise
 
 model, feature_names = load_model_and_features()
 
@@ -238,4 +272,5 @@ if submitted:
 
 # 页脚
 st.markdown("---")
+
 st.caption("©2025 KOA预测系统 | 仅供临床参考")
