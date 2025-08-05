@@ -32,16 +32,32 @@ st.markdown(
 @st.cache_resource
 def load_model_and_features():
     try:
+        import joblib
+        from pathlib import Path
+        
         base_path = Path(__file__).parent
         model_path = base_path / "xgb_koa_frailty.joblib"
         feature_path = base_path / "feature_names3.pkl"
         
+        # 验证文件
         if not model_path.exists():
             raise FileNotFoundError(f"模型文件不存在于: {model_path}")
         
-        # 加载模型
-        model = xgb.Booster()
-        model.load_model(str(model_path))
+        # 尝试多种加载方式
+        try:
+            # 方式1：优先尝试joblib加载
+            model = joblib.load(model_path)
+            if not hasattr(model, 'predict'):
+                raise ValueError("加载的对象不是有效模型")
+                
+        except Exception as e:
+            st.warning(f"Joblib加载失败，尝试XGBoost原生加载: {str(e)}")
+            try:
+                # 方式2：尝试XGBoost原生加载
+                model = xgb.Booster()
+                model.load_model(str(model_path))
+            except Exception as e:
+                raise ValueError(f"所有加载方式均失败: {str(e)}")
         
         # 加载特征名
         with open(feature_path, 'rb') as f:
@@ -51,12 +67,14 @@ def load_model_and_features():
         
     except Exception as e:
         st.error(f"加载失败: {str(e)}")
-        st.write("调试信息:", {
-            "当前目录": str(base_path),
-            "文件列表": list(base_path.glob('*'))
-        })
+        st.write("""
+        **故障排除步骤:**
+        1. 确认模型文件完整
+        2. 检查文件格式是否正确
+        3. 尝试重新生成模型文件
+        """)
+        st.write("当前目录内容:", [f.name for f in Path('.').glob('*')])
         raise
-
 model, feature_names = load_model_and_features()
 
 # 初始化SHAP解释器
@@ -218,3 +236,4 @@ if submitted:
 # 页脚
 st.markdown("---")
 st.caption("©2025 KOA预测系统 | 仅供临床参考")
+
