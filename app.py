@@ -120,11 +120,11 @@ with st.form("patient_input_form"):
     
     submitted = st.form_submit_button("开始评估")
 
+
 # 处理输入数据并预测
 if submitted:
     with st.spinner('正在计算...'):
-        time.sleep(0.5)  # 添加短暂延迟避免渲染冲突
-        
+        time.sleep(0.5)        
         # 将输入转换为模型需要的格式
         input_data = {
             'gender': 1 if gender == "女" else 0,
@@ -147,25 +147,20 @@ if submitted:
             'bl_wbc': wbc
         }
         
-        # 创建DataFrame
-        input_df = pd.DataFrame([input_data])
-        
-        # 确保所有特征都存在
-        for feature in feature_names:
-            if feature not in input_df.columns:
-                input_df[feature] = 0
-        
-        # 重新排序列
-        input_df = input_df[feature_names]
-        
-        # 进行预测
-        prediction = model.predict_proba(input_df)[0]
-        frail_prob = prediction[1]
-        pred_label = 1 if frail_prob > 0.5 else 0
-        
-        # 显示预测结果
-        st.success(f"📊 预测结果: 患者衰弱概率为 {frail_prob*100:.2f}%")
-        
+        try:
+            # 将DataFrame转换为DMatrix格式（Booster模型需要的格式）
+            dmatrix = xgb.DMatrix(input_df, feature_names=feature_names)
+            
+            # 获取原始预测值（可能是log odds）
+            raw_pred = model.predict(dmatrix)[0]
+            
+            # 将预测值转换为概率（使用sigmoid函数）
+            frail_prob = 1 / (1 + np.exp(-raw_pred))
+            prediction = [1 - frail_prob, frail_prob]
+            
+            # 显示预测结果
+            st.success(f"📊 预测结果: 患者衰弱概率为 {frail_prob*100:.2f}%")
+            
         # 调整后的风险等级提示
         if frail_prob > 0.8:  # 高风险阈值提高到0.8
             st.error("""⚠️ **高风险：建议立即临床干预**""")
@@ -182,6 +177,18 @@ if submitted:
             st.write("- 每年体检一次")
             st.write("- 保持健康生活方式")
             st.write("- 预防性健康指导")
+            
+        except Exception as e:
+            st.error(f"预测失败: {str(e)}")
+            st.write("调试信息:", {
+                "模型类型": str(type(model)),
+                "输入数据格式": type(input_df),
+                "输入数据示例": input_df.iloc[0].to_dict(),
+                "特征数量": len(feature_names)
+            })
+            raise
+
+
         
         # ==================== SHAP分析可视化 ====================
         try:
@@ -260,5 +267,6 @@ if submitted:
 st.markdown("---")
 
 st.caption("©2025 KOA预测系统 | 仅供临床参考")
+
 
 
